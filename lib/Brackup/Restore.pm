@@ -23,8 +23,6 @@ sub new {
     die "Backup file doesn't exist"           unless $self->{file} && -f $self->{file};
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
-    $self->{file} = Brackup::GPGDecrypt::decrypt_meta_file_if_needed($self->{file});
-
     return $self;
 }
 
@@ -177,8 +175,9 @@ sub _restore_file {
     my @chunks = grep { $_ } split(/\s+/, $it->{Chunks} || "");
     foreach my $ch (@chunks) {
         my ($offset, $len, $enc_len, $dig) = split(/;/, $ch);
-        my $dataref = $self->{_target}->load_chunk($dig) or
-            die "Error loading chunk $dig from the restore target\n";
+        my $dataref = $self->{_target}->load_chunk_decrypted(
+			$dig, $self->{_meta}{"GPG-Recipient"}) 
+			or die "Error loading chunk $dig from the restore target\n";
 
         my $len_chunk = length $$dataref;
 
@@ -203,10 +202,7 @@ sub _restore_file {
             }
         }
 
-        my $decrypted_ref = Brackup::GPGDecrypt::decrypt_chunk_if_needed(
-                $dataref, $self->{_meta}{"GPG-Recipient"});
-
-        print $fh $$decrypted_ref;
+        print $fh $$dataref;
     }
     close($fh) or die "Close failed";
 
