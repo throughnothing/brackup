@@ -277,6 +277,9 @@ In your ~/.brackup.conf file:
   ignore = ^\.kde/share/thumbnails/
   ignore = ^\.ee/(minis|icons|previews)/
   ignore = ^build/
+  include = ^Downloads/
+  include = ^.vim/
+  include = ^.scripts/
   noatime = 1
 
 =head1 CONFIG OPTIONS
