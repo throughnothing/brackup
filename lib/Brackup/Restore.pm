@@ -23,7 +23,7 @@ sub new {
     die "Backup file doesn't exist"           unless $self->{file} && -f $self->{file};
     croak("Unknown options: " . join(', ', keys %opts)) if %opts;
 
-    $self->decrypt_file_if_needed;
+    $self->{file} = Brackup::GPGDecrypt::decrypt_meta_file_if_needed($self->{file});
 
     return $self;
 }
@@ -37,20 +37,6 @@ sub _driver_meta {
         $ret->{$1} = $src->{$k};
     }
     return $ret;
-}
-
-sub decrypt_file_if_needed {
-    my $self = shift;
-    my $meta = slurp($self->{file});
-    if ($meta =~ /[\x00-\x08]/) { # silly is-binary heuristic
-        my $new_file = $self->_decrypt_data(\$meta,
-                                            want_tempfile => 1,
-                                            no_batch => 1,
-                                            );
-        warn "Decrypted metafile $self->{file} to $new_file; using that to restore from...\n";
-        $self->{file} = $new_file;
-        scalar <STDIN>;
-    }
 }
 
 sub restore {
@@ -112,64 +98,6 @@ sub restore {
         die "nothing found matching '$self->{prefix}'.\n" if $self->{prefix};
         die "nothing found to restore.\n";
     }
-}
-
-sub _output_temp_filename {
-    my $self = shift;
-    return $self->{_output_temp_filename} ||= ( (tempfile())[1] || die );
-}
-
-sub _encrypted_temp_filename {
-    my $self = shift;
-    return $self->{_encrypted_temp_filename} ||= ( (tempfile())[1] || die );
-}
-
-sub _decrypt_data {
-    my $self = shift;
-    my $dataref = shift;
-    my %opts = valid_params(['no_batch', 'want_tempfile'], @_);
-
-    # find which key we're decrypting it using, else return chunk
-    # unmodified in the not-encrypted case
-    if ($self->{_meta}) {
-        my $rcpt = $self->{_meta}{"GPG-Recipient"} or
-            return $dataref;
-    }
-
-    unless ($ENV{'GPG_AGENT_INFO'} ||
-            @Brackup::GPG_ARGS ||
-            $self->{warned_about_gpg_agent}++)
-    {
-        my $err = q{#
-                        # WARNING: trying to restore encrypted files,
-                        # but $ENV{'GPG_AGENT_INFO'} not present.
-                        # Are you running gpg-agent?
-                        #
-                    };
-        $err =~ s/^\s+//gm;
-        warn $err;
-    }
-
-    my $output_temp = $opts{want_tempfile} ?
-        (tempfile())[1]
-        : $self->_output_temp_filename;
-    my $enc_temp    = $self->_encrypted_temp_filename;
-
-    _write_to_file($enc_temp, $dataref);
-
-    my @list = ("gpg", @Brackup::GPG_ARGS,
-                "--use-agent",
-                !$opts{no_batch} ? ("--batch") : (),
-                "--trust-model=always",
-                "--output",  $output_temp,
-                "--yes", "--quiet",
-                "--decrypt", $enc_temp);
-    system(@list)
-        and die "Failed to decrypt with gpg: $!\n";
-
-    return $output_temp if $opts{want_tempfile};
-    my $data = Brackup::Util::slurp($output_temp);
-    return \$data;
 }
 
 sub _update_statinfo {
@@ -275,7 +203,9 @@ sub _restore_file {
             }
         }
 
-        my $decrypted_ref = $self->_decrypt_data($dataref);
+        my $decrypted_ref = Brackup::GPGDecrypt::decrypt_chunk_if_needed(
+                $dataref, $self->{_meta}{"GPG-Recipient"});
+
         print $fh $$decrypted_ref;
     }
     close($fh) or die "Close failed";
@@ -304,21 +234,6 @@ sub _restore_file {
 sub parser {
     my $self = shift;
     return Brackup::Metafile->open($self->{file});
-}
-
-sub _write_to_file {
-    my ($file, $ref) = @_;
-    open (my $fh, ">$file") or die "Failed to open $file for writing: $!\n";
-    print $fh $$ref;
-    close($fh) or die;
-    die "Restored file is not of the correct size" unless -s $file == length $$ref;
-    return 1;
-}
-
-sub DESTROY {
-    my $self = shift;
-    unlink(grep { $_ } ($self->{_output_temp_filename},
-                        $self->{_encrypted_temp_filename}));
 }
 
 1;

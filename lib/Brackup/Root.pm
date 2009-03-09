@@ -21,6 +21,7 @@ sub new {
     $self->{gpg_rcpt}   = $conf->value('gpg_recipient');
     $self->{chunk_size} = $conf->byte_value('chunk_size');
     $self->{ignore}     = [];
+    $self->{include}    = [];
 
     $self->{smart_mp3_chunking} = $conf->bool_value('smart_mp3_chunking');
 
@@ -84,6 +85,11 @@ sub ignore {
     push @{ $self->{ignore} }, qr/$pattern/;
 }
 
+sub include {
+    my ($self, $pattern) = @_;
+    push @{ $self->{include} }, qr/$pattern/;
+}
+
 sub path {
     return $_[0]{dir};
 }
@@ -131,8 +137,23 @@ sub foreach_file {
                     next DENTRY if $is_dir && "$path/" =~ /$pattern/;
                 }
 
-                $statcache{$path} = $statobj;
-                push @good_dentries, $dentry;
+				if(@{$self->{include}}){
+					foreach my $pattern (@{ $self->{include} }){
+						if ($path =~ /$pattern/ || $is_dir && "$path/" =~ /$pattern/){
+							print "File FOUND in include! $path\n";
+							# If includes, and cur object matches the includes, include it
+							$statcache{$path} = $statobj;
+							push @good_dentries, $dentry;
+						}else{
+							print "File not found in include! $path\n";
+						}
+					}
+				}else{
+					print "No include's specified\n";
+					# If no includes were specified, add entry
+					$statcache{$path} = $statobj;
+					push @good_dentries, $dentry;
+				}
             }
 
             # to let it recurse into the good directories we didn't
