@@ -140,16 +140,12 @@ sub foreach_file {
 				if(@{$self->{include}}){
 					foreach my $pattern (@{ $self->{include} }){
 						if ($path =~ /$pattern/ || $is_dir && "$path/" =~ /$pattern/){
-							print "File FOUND in include! $path\n";
 							# If includes, and cur object matches the includes, include it
 							$statcache{$path} = $statobj;
 							push @good_dentries, $dentry;
-						}else{
-							print "File not found in include! $path\n";
 						}
 					}
 				}else{
-					print "No include's specified\n";
 					# If no includes were specified, add entry
 					$statcache{$path} = $statobj;
 					push @good_dentries, $dentry;
