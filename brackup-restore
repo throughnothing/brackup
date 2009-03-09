@@ -69,9 +69,18 @@ use lib "$Bin/lib";
 use Brackup;
 use Brackup::Util qw(tempfile);
 
-my ($opt_verbose, $meta_file, $opt_help, $restore_dir, $opt_all, $prefix);
+my ($opt_verbose, $meta_file, $opt_help, $prefix);
+
+# Make to default to the current directory
+my $restore_dir = './';
+# Default the --all option
+my $opt_all = 1;
+
+my $target_name;
+my $newest_backup;
 
 my $config_file = Brackup::Config->default_config_file_name;
+
 
 usage() unless
     GetOptions(
@@ -82,6 +91,7 @@ usage() unless
                'all'       => \$opt_all,
                'just=s'    => \$prefix,
                'config=s'  => \$config_file,
+               'target=s'  => \$target_name,
                );
 
 if ($opt_help) {
@@ -95,9 +105,28 @@ my $config = eval { Brackup::Config->load($config_file) } or
 
 usage() unless $meta_file && $restore_dir && ($prefix || $opt_all);
 usage("Given directory isn't a directory") unless -d $restore_dir;
-usage("Given restore file doesn't exist")  unless -e $meta_file;
-usage("Given restore file isn't a file")   unless -f $meta_file;
 $prefix ||= "";  # with -all, "", which means everything
+
+# HACK: if $meta_file is not a file, check if its an online backup
+if (! -e $meta_file){
+	# If target is not defined, die
+	# we dont know which target to look for backups on
+	die "Given restore file isn't a file" unless ($target_name);
+
+	# Check if its on the Target
+	my $target = $config->load_target($target_name)
+		or die "Could not find target '$target_name' in your brackup.conf!"; 
+	my @backup_matches = 
+		grep ($_->filename =~ /^($meta_file$)|($meta_file-\d+$)/,$target->backups);
+
+	# Make sure we fonud something
+	die "Could not find a matching backup on the target!" unless @backup_matches;
+
+	$newest_backup = $backup_matches[0]->filename;
+	$meta_file = "$newest_backup.brackup";
+
+	$target->get_backup($newest_backup);
+}
 
 my $restore = Brackup::Restore->new(
                                     to     => $restore_dir,
@@ -106,7 +135,14 @@ my $restore = Brackup::Restore->new(
                                     verbose => $opt_verbose,
                                     );
 
-if (eval { $restore->restore }){
+my $restore_result = eval { $restore->restore };
+
+if ($newest_backup && -e $meta_file){
+	# Remove the newest_backup file if we had to download it
+	`rm -f $meta_file`;
+}
+
+if ($restore_result){
     warn "Restore complete.\n" if $opt_verbose;
     exit 0;
 } else {
@@ -114,7 +150,6 @@ if (eval { $restore->restore }){
     warn "Error doing restore: $@\n";
     exit 1;
 }
-
 
 sub usage {
     my $why = shift || "";
