@@ -50,7 +50,7 @@ sub mount {
         getattr => sub {
             my ($path) = @_;
             my $record = $meta->{$path};
-            return -ENOENT unless $record;
+            return ENOENT unless $record;
 
             return (
                 0,     # device number (?)
@@ -73,8 +73,8 @@ sub mount {
             my ($path) = @_;
 
             my $record = $meta->{$path};
-            return -ENOENT unless $record;
-            return -ENOTDIR unless $record->{type} eq 'd';
+            return ENOENT unless $record;
+            return ENOTDIR unless $record->{type} eq 'd';
 
             return ('..', @{$record->{child_nodes}}, 0);
         },
@@ -83,7 +83,7 @@ sub mount {
             my ($path) = @_;
 
             my $record = $meta->{$path};
-            return -ENOENT unless $record;
+            return ENOENT unless $record;
 
             return $record->{link} || 0;
         },
@@ -92,9 +92,9 @@ sub mount {
             my ($path, $mode) = @_;
 
             my $record = $meta->{$path};
-            return -ENOENT unless $record;
-            return -EISDIR if $record->{type} eq 'd';
-            return -EROFS if ($mode & O_WRONLY) || ($mode & O_RDWR);
+            return ENOENT unless $record;
+            return EISDIR if $record->{type} eq 'd';
+            return EROFS if ($mode & O_WRONLY) || ($mode & O_RDWR);
 
             # Fetch the data relating to this file to a local
             # file and open it.
@@ -124,10 +124,10 @@ sub mount {
             my ($path, $size, $offset) = @_;
 
             my $record = $meta->{$path};
-            return -ENOENT unless $record;
-            return -EISDIR if $record->{type} eq 'd';
+            return ENOENT unless $record;
+            return EISDIR if $record->{type} eq 'd';
 
-            return -EBUSY unless $record->{opencount} > 0;
+            return EBUSY unless $record->{opencount} > 0;
 
             my $fh = $record->{fh};
 
@@ -150,10 +150,10 @@ sub mount {
             # A previously-opened file has been closed.
 
             my $record = $meta->{$path};
-            return -ENOENT unless $record;
+            return ENOENT unless $record;
 
             my $fh = $record->{fh};
-            return -EINVAL unless $fh;
+            return EINVAL unless $fh;
 
             $record->{opencount}--;
 
