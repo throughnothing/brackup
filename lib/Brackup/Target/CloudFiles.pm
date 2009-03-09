@@ -3,7 +3,8 @@ package Brackup::Target::CloudFiles;
 use strict;
 use warnings;
 use base 'Brackup::Target';
-use Net::Rackspace::CloudFiles;
+use Net::Mosso::CloudFiles;
+use Date::Parse;
 use Carp qw(croak);
 
 # fields in object:
@@ -35,17 +36,19 @@ sub _common_cf_init {
     $self->{chunkContainerName}  = $self->{username} . "-chunks";
     $self->{backupContainerName} = $self->{username} . "-backups";
 
-    $self->{cf} = Connection->new(
-		username => $self->{username}, apiKey => $self->{apiKey});
+    $self->{cf} = Net::Mosso::CloudFiles->new(
+		user => $self->{username}, 
+		key => $self->{apiKey}
+	);
 
 	#createContainer makes the object and returns it, or returns it
 	#if it already exists
 	$self->{chunkContainer} = 
-		$self->{cf}->createContainer($self->{chunkContainerName})
-		or die "Failed to get chunk container";
+		$self->{cf}->container($self->{chunkContainerName})
+			or die "Failed to get chunk container";
 	$self->{backupContainer} =
-		$self->{cf}->createContainer($self->{backupContainerName})
-		or die "Failed to get backup container";
+		$self->{cf}->container($self->{backupContainerName})
+			or die "Failed to get backup container";
 
 }
 #}}}
@@ -82,7 +85,7 @@ sub has_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;   # "sha1:sdfsdf" format scalar
 
-    my $res = $self->{chunkContainer}->getObject($dig);
+    my $res = $self->{chunkContainer}->object($dig);
 
     return 0 unless $res;
 
@@ -97,9 +100,9 @@ sub has_chunk {
 sub load_chunk {
     my ($self, $dig) = @_;
 
-    my $val = $self->{chunkContainer}->getObject($dig)
+    my $val = $self->{chunkContainer}->object($dig)->value
         or return 0;
-    return \ $val->read;
+    return \ $val;
 }
 #}}}
 #{{{ store_chunk
@@ -109,35 +112,37 @@ sub store_chunk {
     my $blen = $chunk->backup_length;
     my $chunkref = $chunk->chunkref;
 
-	my $object = $self->{chunkContainer}->createObject(
-		$dig,$$chunkref,'x-danga/brackup-chunk');
-	if ($object)
-	{
-		return 1;
-	}
+	$self->{chunkContainer}->put(
+		$dig,
+		$$chunkref,
+		'x-danga/brackup-chunk'
+	);
 
-	return 0;
+	return 1;
 }
 #}}}
 #{{{ delete_chunk
 sub delete_chunk {
     my ($self, $dig) = @_;
 
-	return $self->{chunkContainer}->deleteObject($dig)
+	return $self->{chunkContainer}->object($dig)->delete;
 }
 #}}}
 #{{{ chunks
 sub chunks {
     my $self = shift;
-	return $self->{chunkContainer}->listObjects();
+	my @objectNames;
+
+	my @objects = @{$self->{chunkContainer}->objects()};
+	foreach (@objects){ push @objectNames, $_->name;}
+	return @objectNames;
 }
 #}}}
 #{{{ store_backup_meta
 sub store_backup_meta {
     my ($self, $name, $file) = @_;
 
-    my $rv = $self->{backupContainer}->createObject(
-		$name,$file,'x-danga/brackup-meta',);
+    $self->{backupContainer}->put( $name,$file);
 
 	return 1;
 }
@@ -148,13 +153,12 @@ sub backups {
 
     my @ret;
 	
-	my @backups = $self->{backupContainer}->listObjects();
-    foreach (@backups) {
-		my $object = $self->{backupContainer}->getObject($_);
+	my @backups = @{$self->{backupContainer}->objects()};
+    foreach my $backup (@backups) {
         push @ret, Brackup::TargetBackupStatInfo->new(
-			$self, $_,
-			time => $object->lastModified,
-			size => $object->size);
+			$self, $backup->name,
+			time => str2time($backup->last_modified),
+			size => $backup->size);
     }
     return @ret;
 }
@@ -164,16 +168,16 @@ sub get_backup {
     my $self = shift;
     my ($name, $output_file) = @_;
 	
-	my $val = $self->{backupContainer}->getObject($name)
-		or return 0; 
+	my $val = $self->{backupContainer}->object($name)->value
+		or return 0;
 
 	$output_file ||= "$name.brackup";
     open(my $out, ">$output_file") or die "Failed to open $output_file: $!\n";
 
-    my $outv = syswrite($out, $val->read);
+    my $outv = syswrite($out, $val);
 
     die "download/write error" unless 
-		$outv == do { use bytes; length $val->read };
+		$outv == do { use bytes; length $val };
     close $out;
 
     return 1;
@@ -183,7 +187,7 @@ sub get_backup {
 sub delete_backup {
     my $self = shift;
     my $name = shift;
-    return $self->{backupContainer}->deleteObject($name);
+    return $self->{backupContainer}->object($name)->delete;
 }
 #}}}
 1;
