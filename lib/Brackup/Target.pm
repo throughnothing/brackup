@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Brackup::InventoryDatabase;
 use Brackup::TargetBackupStatInfo;
+use Brackup::GPGDecrypt;
 use Brackup::Util 'tempfile';
 use Carp qw(croak);
 
@@ -93,6 +94,15 @@ sub get_backup {
 sub delete_backup {
     my ($self, $name) = @_;
     die "ERROR: delete_backup method not implemented in sub-class $self";
+}
+
+# This will load a chunk and decrypt it if needed using Brackup::GPGDecrypt
+sub load_chunk_decrypted {
+	my ($self, $dig, $gpg_recipient) = @_;
+	my $dataref = $self->load_chunk($dig);
+
+	return Brackup::GPGDecrypt::decrypt_chunk_if_needed(
+			$dataref, $gpg_recipient);
 }
 
 # removes old metafiles from this target
