@@ -154,6 +154,10 @@ sub load_root {
         $root->ignore($pat);
     }
 
+    foreach my $pat ($conf->values("include")) {
+        $root->include($pat);
+    }
+
     # common things to ignore
     $root->ignore(qr!~$!);
     $root->ignore(qr!^\.thumbnails/!);
