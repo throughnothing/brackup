@@ -175,8 +175,7 @@ sub _restore_file {
     my @chunks = grep { $_ } split(/\s+/, $it->{Chunks} || "");
     foreach my $ch (@chunks) {
         my ($offset, $len, $enc_len, $dig) = split(/;/, $ch);
-        my $dataref = $self->{_target}->load_chunk_decrypted(
-			$dig, $self->{_meta}{"GPG-Recipient"}) 
+        my $dataref = $self->{_target}->load_chunk($dig) 
 			or die "Error loading chunk $dig from the restore target\n";
 
         my $len_chunk = length $$dataref;
@@ -186,7 +185,8 @@ sub _restore_file {
         # target multiple times.  better to cache it locally, or at least
         # only fetch a region from the target (but that's still kinda inefficient
         # and pushes complexity into the Target interface)
-        if ($len =~ /^(\d+)-(\d+)$/) {
+        if ($enc_len =~ /^(\d+)-(\d+)$/) {
+			print "getting sub-region";
             my ($from, $to) = ($1, $2);
             # file range.  gotta be at least as big as bigger number
             unless ($len_chunk >= $to) {
@@ -197,11 +197,13 @@ sub _restore_file {
         } else {
             # using the whole chunk, so make sure fetched size matches
             # expected size
-            unless ($len_chunk == $len) {
+            unless ($len_chunk == $enc_len) {
                 die "Backup chunk $dig isn't of expected length: got $len_chunk, expecting $enc_len\n";
             }
         }
-
+		
+		$dataref = Brackup::GPGHelper::decrypt_chunk_if_needed(
+			$dataref, $self->{_meta}{"GPG-Recipient"});
         print $fh $$dataref;
     }
     close($fh) or die "Close failed";
