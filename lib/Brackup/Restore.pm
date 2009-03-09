@@ -186,7 +186,7 @@ sub _restore_file {
         # target multiple times.  better to cache it locally, or at least
         # only fetch a region from the target (but that's still kinda inefficient
         # and pushes complexity into the Target interface)
-        if ($enc_len =~ /^(\d+)-(\d+)$/) {
+        if ($len =~ /^(\d+)-(\d+)$/) {
             my ($from, $to) = ($1, $2);
             # file range.  gotta be at least as big as bigger number
             unless ($len_chunk >= $to) {
@@ -197,7 +197,7 @@ sub _restore_file {
         } else {
             # using the whole chunk, so make sure fetched size matches
             # expected size
-            unless ($len_chunk == $enc_len) {
+            unless ($len_chunk == $len) {
                 die "Backup chunk $dig isn't of expected length: got $len_chunk, expecting $enc_len\n";
             }
         }
