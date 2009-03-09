@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Brackup::InventoryDatabase;
 use Brackup::TargetBackupStatInfo;
-use Brackup::GPGDecrypt;
+use Brackup::GPGHelper;
 use Brackup::Util 'tempfile';
 use Carp qw(croak);
 
@@ -96,12 +96,12 @@ sub delete_backup {
     die "ERROR: delete_backup method not implemented in sub-class $self";
 }
 
-# This will load a chunk and decrypt it if needed using Brackup::GPGDecrypt
+# This will load a chunk and decrypt it if needed using Brackup::GPGHelper
 sub load_chunk_decrypted {
 	my ($self, $dig, $gpg_recipient) = @_;
 	my $dataref = $self->load_chunk($dig);
 
-	return Brackup::GPGDecrypt::decrypt_chunk_if_needed(
+	return Brackup::GPGHelper::decrypt_chunk_if_needed(
 			$dataref, $gpg_recipient);
 }
 
@@ -148,6 +148,7 @@ sub gc {
             next ITEM unless $it->{Chunks};
             my @item_chunks = map { (split /;/)[3] } grep { $_ } split(/\s+/, $it->{Chunks} || "");
             delete $chunks{$_} for (@item_chunks);
+		unlink($tempfile);
         }
     }
     my @orphaned_chunks = keys %chunks;
