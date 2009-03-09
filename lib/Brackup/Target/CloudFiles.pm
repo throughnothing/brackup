@@ -133,7 +133,7 @@ sub chunks {
     my $self = shift;
 	my @objectNames;
 
-	my @objects = @{$self->{chunkContainer}->objects()};
+	my @objects = $self->{chunkContainer}->objects();
 	foreach (@objects){ push @objectNames, $_->name;}
 	return @objectNames;
 }
@@ -153,7 +153,7 @@ sub backups {
 
     my @ret;
 	
-	my @backups = @{$self->{backupContainer}->objects()};
+	my @backups = $self->{backupContainer}->objects();
     foreach my $backup (@backups) {
         push @ret, Brackup::TargetBackupStatInfo->new(
 			$self, $backup->name,
