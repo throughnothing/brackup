@@ -2,6 +2,7 @@ package Brackup::Metafile;
 use strict;
 use warnings;
 use Carp qw(croak);
+use Brackup::GPGDecrypt;
 
 sub new {
     my ($class) = @_;
@@ -10,10 +11,14 @@ sub new {
 
 sub open {
     my ($class, $file) = @_;
+    my $self = __PACKAGE__->new;
+
+	# GPGDecrypt object so we can decrypt ourself if needed
+	Brackup::GPGDecrypt::decrypt_meta_file_if_needed($file);
+
     unless (-e $file) {
         die "Unable to open metafile $file\n";
     }
-    my $self = __PACKAGE__->new;
     $self->{filename} = $file;
     open $self->{fh}, "<", $file;
     $self->{linenum} = 0;
