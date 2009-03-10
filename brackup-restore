@@ -10,6 +10,7 @@ brackup-restore - The brackup restore tool.
 
 =head1 SYNOPSIS
 
+ $ brackup-restore --from=foo.brackup --to=<base_directory>
  $ brackup-restore --from=foo.brackup --to=<base_directory> --all
  $ brackup-restore --from=foo.brackup --to=<base_directory> --just=<file>
  $ brackup-restore --from=foo.brackup --to=<base_directory> --just=<dir>
@@ -31,7 +32,7 @@ Required.  The destination root directory for your restored files.
 
 =item --all
 
-Restore all files.
+Restore all files. This is the default if not specified.
 
 =item --just="DIRECTORY"
 
@@ -158,5 +159,4 @@ sub usage {
         $why = "Error: $why\n\n";
     }
     die "${why}brackup-restore --from=[metafile.brackup] --to=[restore_dir] <--all|--just=[what]>\nbrackup-restore --help\n";
-
 }
