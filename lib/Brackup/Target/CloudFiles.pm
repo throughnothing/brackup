@@ -44,10 +44,10 @@ sub _common_cf_init {
 	#createContainer makes the object and returns it, or returns it
 	#if it already exists
 	$self->{chunkContainer} = 
-		$self->{cf}->container($self->{chunkContainerName})
+		$self->{cf}->create_container(name => $self->{chunkContainerName})
 			or die "Failed to get chunk container";
 	$self->{backupContainer} =
-		$self->{cf}->container($self->{backupContainerName})
+		$self->{cf}->create_container(name => $self->{backupContainerName})
 			or die "Failed to get backup container";
 
 }
@@ -85,7 +85,7 @@ sub has_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;   # "sha1:sdfsdf" format scalar
 
-    my $res = $self->{chunkContainer}->object($dig);
+    my $res = $self->{chunkContainer}->object(name => $dig);
 
     return 0 unless $res;
 
@@ -100,7 +100,7 @@ sub has_chunk {
 sub load_chunk {
     my ($self, $dig) = @_;
 
-    my $val = $self->{chunkContainer}->object($dig)->value
+    my $val = $self->{chunkContainer}->object(name => $dig)->get
         or return 0;
     return \ $val;
 }
@@ -112,11 +112,10 @@ sub store_chunk {
     my $blen = $chunk->backup_length;
     my $chunkref = $chunk->chunkref;
 
-	$self->{chunkContainer}->put(
-		$dig,
-		$$chunkref,
-		'x-danga/brackup-chunk'
-	);
+	$self->{chunkContainer}->object(
+        name => $dig,
+        content_type => 'x-danga/brackup-chunk'
+    )->put($$chunkref);
 
 	return 1;
 }
@@ -125,7 +124,7 @@ sub store_chunk {
 sub delete_chunk {
     my ($self, $dig) = @_;
 
-	return $self->{chunkContainer}->object($dig)->delete;
+	return $self->{chunkContainer}->object(name => $dig)->delete;
 }
 #}}}
 #{{{ chunks
@@ -133,7 +132,7 @@ sub chunks {
     my $self = shift;
 	my @objectNames;
 
-	my @objects = $self->{chunkContainer}->objects();
+	my @objects = $self->{chunkContainer}->objects->all;
 	foreach (@objects){ push @objectNames, $_->name;}
 	return @objectNames;
 }
@@ -142,7 +141,7 @@ sub chunks {
 sub store_backup_meta {
     my ($self, $name, $file) = @_;
 
-    $self->{backupContainer}->put( $name,$file);
+    $self->{backupContainer}->object(name => $name)->put($file);
 
 	return 1;
 }
@@ -153,7 +152,8 @@ sub backups {
 
     my @ret;
 	
-	my @backups = $self->{backupContainer}->objects();
+	my @backups = $self->{backupContainer}->objects->all;
+
     foreach my $backup (@backups) {
         push @ret, Brackup::TargetBackupStatInfo->new(
 			$self, $backup->name,
@@ -168,7 +168,7 @@ sub get_backup {
     my $self = shift;
     my ($name, $output_file) = @_;
 	
-	my $val = $self->{backupContainer}->object($name)->value
+	my $val = $self->{backupContainer}->object(name => $name)->get
 		or return 0;
 
 	$output_file ||= "$name.brackup";
@@ -187,7 +187,7 @@ sub get_backup {
 sub delete_backup {
     my $self = shift;
     my $name = shift;
-    return $self->{backupContainer}->object($name)->delete;
+    return $self->{backupContainer}->object(name => $name)->delete;
 }
 #}}}
 1;
