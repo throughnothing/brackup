@@ -216,3 +216,6 @@ L<Brackup::Target>
 
 L<Net::Mosso::CloudFiles> -- required module to use Brackup::Target::CloudFiles
 
+=head1 AUTHOR
+
+William Wolf E<lt>throughnothing@gmail.comE<gt>
