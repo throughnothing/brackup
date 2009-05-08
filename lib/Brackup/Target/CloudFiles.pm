@@ -15,7 +15,6 @@ use Carp qw(croak);
 #   backupContainer : $self->{username} . "-backups";
 #
 
-#{{{ new
 sub new {
     my ($class, $confsec) = @_;
     my $self = $class->SUPER::new($confsec);
@@ -29,8 +28,7 @@ sub new {
 
     return $self;
 }
-#}}}
-#{{{ _common_cf_init
+
 sub _common_cf_init {
     my $self = shift;
     $self->{chunkContainerName}  = $self->{username} . "-chunks";
@@ -51,8 +49,7 @@ sub _common_cf_init {
 			or die "Failed to get backup container";
 
 }
-#}}}
-#{{{ _prompt
+
 sub _prompt {
     my ($q) = @_;
     my $ans = <STDIN>;
@@ -60,8 +57,7 @@ sub _prompt {
     $ans =~ s/\s+$//;
     return $ans;
 }
-#}}}
-#{{{ new_from_backup_header
+
 sub new_from_backup_header {
     my ($class, $header) = @_;
 
@@ -79,8 +75,7 @@ sub new_from_backup_header {
     $self->_common_cf_init;
     return $self;
 }
-#}}}
-#{{{ has_chunk
+
 sub has_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;   # "sha1:sdfsdf" format scalar
@@ -95,8 +90,7 @@ sub has_chunk {
 	#return 0 unless $res->{content_type} eq "x-danga/brackup-chunk";
     return 1;
 }
-#}}}
-#{{{ load_chunk
+
 sub load_chunk {
     my ($self, $dig) = @_;
 
@@ -104,8 +98,7 @@ sub load_chunk {
         or return 0;
     return \ $val;
 }
-#}}}
-#{{{ store_chunk
+
 sub store_chunk {
     my ($self, $chunk) = @_;
     my $dig = $chunk->backup_digest;
@@ -119,15 +112,13 @@ sub store_chunk {
 
 	return 1;
 }
-#}}}
-#{{{ delete_chunk
+
 sub delete_chunk {
     my ($self, $dig) = @_;
 
 	return $self->{chunkContainer}->object(name => $dig)->delete;
 }
-#}}}
-#{{{ chunks
+
 sub chunks {
     my $self = shift;
 	my @objectNames;
@@ -136,8 +127,7 @@ sub chunks {
 	foreach (@objects){ push @objectNames, $_->name;}
 	return @objectNames;
 }
-#}}}
-#{{{ store_backup_meta
+
 sub store_backup_meta {
     my ($self, $name, $file) = @_;
 
@@ -145,8 +135,7 @@ sub store_backup_meta {
 
 	return 1;
 }
-#}}}
-#{{{ backups
+
 sub backups {
     my $self = shift;
 
@@ -162,8 +151,7 @@ sub backups {
     }
     return @ret;
 }
-#}}}
-#{{{ get_backup
+
 sub get_backup {
     my $self = shift;
     my ($name, $output_file) = @_;
@@ -182,19 +170,18 @@ sub get_backup {
 
     return 1;
 }
-#}}}
-#{{{ delete_backup
+
 sub delete_backup {
     my $self = shift;
     my $name = shift;
     return $self->{backupContainer}->object(name => $name)->delete;
 }
-#}}}
+
 1;
 
 =head1 NAME
 
-Brackup::Target::CloudFiles - backup to Rackspace's CloudFiles Service
+Brackup::Target::CloudFiles - backup to Rackspace's/Mosso's CloudFiles Service
 
 =head1 EXAMPLE
 
@@ -215,11 +202,11 @@ Must be "B<CloudFiles>".
 
 =item B<cf_username>
 
-Your Rackspace CloudFiles user name.
+Your Rackspace/Mosso CloudFiles user name.
 
 =item B<cf_api_key>
 
-Your Rackspace CloudFiles api key.
+Your Rackspace/Mosso CloudFiles api key.
 
 =back
 
@@ -227,5 +214,5 @@ Your Rackspace CloudFiles api key.
 
 L<Brackup::Target>
 
-L<Net::Rackspace::CloudFiles> -- required module to use Brackup::Target::CloudFiles
+L<Net::Mosso::CloudFiles> -- required module to use Brackup::Target::CloudFiles
 
